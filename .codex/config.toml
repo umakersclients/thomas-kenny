@@ -1,0 +1,11 @@
+
+[project]
+include = [
+  "https://svelte.dev/llms-medium.txt",
+  "https://context7.com/huntabyte/shadcn-svelte/llms.txt",
+  "AGENTS.md"
+]
+
+[fetch]
+allow_remote_markdown = true
+allow_domains = ["myshare.dk"]
