@@ -1,9 +1,5 @@
 import { error, fail } from "@sveltejs/kit";
-import {
-	ensureQuotesDataset,
-	readQuotesDataset,
-	updateQuoteRecord,
-} from "$lib/server/quotes-store";
+import { ensureQuotesDataset, readQuotesDataset, updateQuoteRecord } from "$lib/server/quotes-db";
 import type { Actions, PageServerLoad } from "./$types";
 
 /**
@@ -11,8 +7,8 @@ import type { Actions, PageServerLoad } from "./$types";
  */
 export const load: PageServerLoad = async ({ fetch }) => {
 	try {
-		const freshlyFetched = await ensureQuotesDataset(fetch);
-		const quotes = freshlyFetched ?? (await readQuotesDataset());
+		await ensureQuotesDataset(fetch);
+		const quotes = await readQuotesDataset();
 
 		return { quotes };
 	} catch (cause) {

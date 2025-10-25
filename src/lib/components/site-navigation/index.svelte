@@ -7,18 +7,15 @@
 		category?: string;
 	};
 
-	export type SiteNavigationProps = {
-		links?: NavigationLink[];
-		resources?: NavigationLink[];
-	};
+export type SiteNavigationProps = {
+	links?: NavigationLink[];
+};
 </script>
 
 <script lang="ts">
-	import Menu from "@lucide/svelte/icons/menu";
-	import Sparkles from "@lucide/svelte/icons/sparkles";
-	import Github from "@lucide/svelte/icons/github";
-	import UserRound from "@lucide/svelte/icons/user-round";
-	import ExternalLink from "@lucide/svelte/icons/external-link";
+import Menu from "@lucide/svelte/icons/menu";
+import Sparkles from "@lucide/svelte/icons/sparkles";
+import UserRound from "@lucide/svelte/icons/user-round";
 	import { Button } from "$lib/components/ui/button";
 	import { Badge } from "$lib/components/ui/badge";
 	import {
@@ -41,40 +38,14 @@
 	} from "$lib/components/ui/sheet";
 
 	let {
-		links = [
-			{ label: "Dashboard", href: "/", description: "Browse the latest South Park quotes." },
-			{
-				label: "Characters",
-				href: "/characters",
-				description: "Explore quotes grouped by characters and seasons.",
-			},
-			{
-				label: "Insights",
-				href: "/insights",
-				description: "Discover trends, keywords, and fan favourites.",
-			},
-		],
-		resources = [
-			{
-				label: "API Reference",
-				href: "https://southparkquotes.onrender.com/",
-				description: "Study the REST endpoints powering this dashboard.",
-				category: "Docs",
-			},
-			{
-				label: "SvelteKit Guide",
-				href: "https://svelte.dev/docs/kit",
-				description: "Review the SvelteKit fundamentals and best practices.",
-				category: "Docs",
-			},
-			{
-				label: "Tailwind Recipes",
-				href: "https://tailwindcss.com/docs",
-				description: "Level up your styling with Tailwind techniques.",
-				category: "Design",
-			},
-		],
-	}: SiteNavigationProps = $props();
+	links = [
+		{
+			label: "Dashboard",
+			href: "/",
+			description: "Browse the South Park quotes dashboard.",
+		},
+	],
+}: SiteNavigationProps = $props();
 
 	let mobileNavOpen = $state(false);
 
@@ -122,55 +93,24 @@
 						</NavigationMenuItem>
 					{/each}
 
-					<NavigationMenuItem>
-						<NavigationMenuTrigger class="text-sm font-medium text-foreground/80">
-							Resources
-						</NavigationMenuTrigger>
-						<NavigationMenuContent class="grid min-w-[320px] gap-2 p-4 md:grid-cols-2">
-							{#each resources as resource}
-								<a
-									class="group flex flex-col gap-1 rounded-lg border border-transparent p-3 transition hover:border-border hover:bg-accent/40"
-									href={resource.href}
-									target="_blank"
-									rel="noreferrer"
-								>
-									<div class="flex items-center gap-2">
-										<Badge variant="outline" class="text-[10px] uppercase tracking-wide">
-											{resource.category ?? "Resource"}
-										</Badge>
-										<ExternalLink class="size-3 text-muted-foreground/60 transition group-hover:text-primary" />
-									</div>
-									<span class="text-sm font-semibold text-foreground">{resource.label}</span>
-									<p class="text-xs text-muted-foreground/80">{resource.description}</p>
-								</a>
-							{/each}
-						</NavigationMenuContent>
-					</NavigationMenuItem>
 				</NavigationMenuList>
 				<NavigationMenuIndicator />
 				<NavigationMenuViewport />
 			</NavigationMenu>
 
-			<div class="flex items-center gap-3">
-				<Button href="https://github.com/" variant="ghost" size="icon" aria-label="Project GitHub">
-					<Github class="size-4" />
-				</Button>
-
-				<Button variant="outline" size="sm">
-					<UserRound class="size-4" />
-					<span class="hidden lg:inline">Team</span>
-				</Button>
-			</div>
-		</div>
-
-		<div class="flex items-center gap-3 md:hidden">
-			<Button href="https://github.com/" variant="ghost" size="icon" aria-label="Project GitHub">
-				<Github class="size-4" />
-			</Button>
-		<Button variant="outline" size="icon" aria-label="Open navigation" onclick={() => (mobileNavOpen = true)}>
-				<Menu class="size-4" />
+		<div class="flex items-center gap-3">
+			<Button variant="outline" size="sm">
+				<UserRound class="size-4" />
+				<span class="hidden lg:inline">Team</span>
 			</Button>
 		</div>
+	</div>
+
+	<div class="flex items-center gap-3 md:hidden">
+	<Button variant="outline" size="icon" aria-label="Open navigation" onclick={() => (mobileNavOpen = true)}>
+		<Menu class="size-4" />
+		</Button>
+	</div>
 	</div>
 </nav>
 
@@ -200,21 +140,7 @@
 				{/each}
 			</div>
 
-			<div class="space-y-3">
-				<p class="text-xs font-semibold uppercase text-muted-foreground/70">Resources</p>
-				{#each resources as resource}
-					<a
-						class="flex flex-col gap-1 rounded-lg border border-transparent px-3 py-2 text-xs text-muted-foreground transition hover:border-border hover:bg-accent/40 hover:text-accent-foreground"
-						href={resource.href}
-						onclick={closeMobileNav}
-					>
-						<span class="font-semibold text-foreground">{resource.label}</span>
-						<span>{resource.description}</span>
-					</a>
-				{/each}
-			</div>
-
-			<Separator />
+		<Separator />
 
 			<div class="space-y-3">
 				<p class="text-xs font-semibold uppercase text-muted-foreground/70">Workspace</p>
