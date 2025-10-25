@@ -1,4 +1,5 @@
-ead configuration
+# 1
+> Read configuration
 
 
 Config in .codex/config.toml:1 pulls extra context from svelte.dev/llms-medium.txt, context7.com/huntabyte/shadcn-svelte/llms.txt, and local AGENTS.md. Remote markdown fetches are enabled (allow_remote_markdown = true), limited to domains in allow_domains—currently only myshare.dk.
@@ -57,14 +58,16 @@ quote-card.svelte
 +8
 -2
 
-use shadcn-svelte components for the ui. We need the following
+# 2
+> use shadcn-svelte components for the ui. We need the following  
 
-navigatiion
-card
-dialog
-menu dropdowns or slide in.
-complete fix of design to look absolutly shadcn cool-
-First - make a plan for which compoinents to use and how you would install them
+> navigatiion  
+> card  
+> dialog  
+> menu dropdowns or slide in.  
+> complete fix of design to look absolutly shadcn cool  
+
+> First - make a plan for which compoinents to use and how you would install them  
 
 
 Component Plan
@@ -87,7 +90,10 @@ Implement DropdownMenu for top-right user controls and Sheet to surface filters 
 Introduce ScrollArea around the quotes grid for consistent overflow handling.
 Wire toast store in layout to surface load failures or copy-to-clipboard success.
 Update Tailwind classes to match shadcn tokens (spacing, typography) for a cohesive “shadcn cool” aesthetic.
-do this
+
+# 3
+
+> do this
 
 
 Dashboard Upgrade
@@ -135,11 +141,12 @@ quote-card.svelte
 +13
 -3
 
-on startup, checki if quotes.json exists, if not fetch quotes and save to quotes.json.
+# 4
+> on startup, checki if quotes.json exists, if not fetch quotes and save to quotes.json.
 
-only show 3 rows of quotes. on scroll down load 3 rows more.
+> only show 3 rows of quotes. on scroll down load 3 rows more.
 
-modify dialog to update and save quote. when saving update the quotes.json
+> modify dialog to update and save quote. when saving update the quotes.json
 
 
 Added filesystem persistence helpers in src/lib/server/quotes-store.ts:1 to bootstrap data/quotes.json on first load, read the cached dataset, and write back edited quotes.
@@ -174,7 +181,8 @@ quotes-store.ts
 +37
 -4
 
-add console.log for load more
+# 5
+> add console.log for load more
 
 
 Inserted a console.log("Loading more quotes rows...") in src/lib/components/quotes-dashboard/index.svelte:142 so every infinite-scroll batch visibly logs when additional rows load.
@@ -224,8 +232,10 @@ index.svelte
 +24
 -97
 
-change the implemenatatin to use a sqlite tabel for the quotes.json instead. change all code to use this db.
-remove the load more and just load all.
+# 6
+
+> change the implemenatatin to use a sqlite tabel for the quotes.json instead. change all code to use this db.
+> remove the load more and just load all.
 
 
 Changes
