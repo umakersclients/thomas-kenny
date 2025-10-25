@@ -1,4 +1,4 @@
-<!-- High-level dashboard for browsing and filtering South Park quotes pulled from the API. -->
+<!-- High-level dashboard for browsing and editing South Park quotes stored locally. -->
 <script lang="ts" module>
 	import type { Quote as QuoteModel } from "$lib/api/fetch-quotes";
 
@@ -8,16 +8,18 @@
 </script>
 
 <script lang="ts">
-import { toast } from "svelte-sonner";
-import BadgeCheck from "@lucide/svelte/icons/badge-check";
-import CalendarClock from "@lucide/svelte/icons/calendar-clock";
-import Copy from "@lucide/svelte/icons/copy";
-import Filter from "@lucide/svelte/icons/filter";
-import Info from "@lucide/svelte/icons/info";
-import MessageCircle from "@lucide/svelte/icons/message-circle";
-import RefreshCw from "@lucide/svelte/icons/refresh-cw";
-import Sparkles from "@lucide/svelte/icons/sparkles";
-import Users from "@lucide/svelte/icons/users";
+	import { enhance } from "$app/forms";
+	import { toast } from "svelte-sonner";
+	import type { SubmitFunction } from "@sveltejs/kit";
+	import BadgeCheck from "@lucide/svelte/icons/badge-check";
+	import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+	import Copy from "@lucide/svelte/icons/copy";
+	import Filter from "@lucide/svelte/icons/filter";
+	import Info from "@lucide/svelte/icons/info";
+	import MessageCircle from "@lucide/svelte/icons/message-circle";
+	import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+	import Sparkles from "@lucide/svelte/icons/sparkles";
+	import Users from "@lucide/svelte/icons/users";
 	import { QuoteCard } from "$lib/components/ui/quote-card";
 	import {
 		Card,
@@ -49,27 +51,48 @@ import Users from "@lucide/svelte/icons/users";
 	} from "$lib/components/ui/dialog";
 	import type { Quote } from "$lib/api/fetch-quotes";
 
+	const QUOTES_PER_ROW = 3;
+	const ROWS_PER_BATCH = 3;
+	const QUOTES_PER_BATCH = QUOTES_PER_ROW * ROWS_PER_BATCH;
+
 	let { quotes }: QuotesDashboardProps = $props();
 
+	let dataset = $state([...quotes]);
 	let searchTerm = $state("");
 	let selectedCharacter = $state<"All" | string>("All");
 	let dialogOpen = $state(false);
 	let focusedQuote = $state<Quote | null>(null);
+	let editableQuote = $state("");
+	let editableCharacter = $state("");
+	let visibleCount = $state(
+		Math.min(QUOTES_PER_BATCH, quotes.length === 0 ? QUOTES_PER_BATCH : quotes.length),
+	);
+	let scrollViewport = $state<HTMLElement | null>(null);
+	let loadMoreSentinel = $state<HTMLElement | null>(null);
+
+	// Sync local dataset when the incoming prop changes identity.
+	$effect(() => {
+		if (
+			quotes.length !== dataset.length ||
+			quotes.some((quote, index) => dataset[index]?.id !== quote.id)
+		) {
+			dataset = [...quotes];
+			visibleCount = Math.min(QUOTES_PER_BATCH, dataset.length);
+		}
+	});
 
 	const characters = $derived([
 		"All",
-		...Array.from(new Set(quotes.map((quote) => quote.character))).sort((a, b) =>
+		...Array.from(new Set(dataset.map((quote) => quote.character))).sort((a, b) =>
 			a.localeCompare(b),
 		),
 	]);
-
 	const normalizedSearch = $derived(searchTerm.trim().toLowerCase());
 	const filtersActive = $derived(
 		normalizedSearch.length > 0 || selectedCharacter !== "All",
 	);
-
 	const filteredQuotes = $derived(
-		quotes.filter((quote) => {
+		dataset.filter((quote) => {
 			const matchesCharacter =
 				selectedCharacter === "All" || quote.character === selectedCharacter;
 			const matchesSearch =
@@ -80,6 +103,55 @@ import Users from "@lucide/svelte/icons/users";
 			return matchesCharacter && matchesSearch;
 		}),
 	);
+	const visibleQuotes = $derived(filteredQuotes.slice(0, visibleCount));
+	const hasMoreQuotes = $derived(visibleCount < filteredQuotes.length);
+
+	// Clamp the visible quote count whenever the filters shrink the dataset.
+	$effect(() => {
+		if (visibleCount > filteredQuotes.length) {
+			visibleCount = filteredQuotes.length;
+		}
+	});
+
+	// Reset pagination when filters change.
+	const filterSignature = $derived(
+		`${normalizedSearch}|${selectedCharacter}|${dataset.length}`,
+	);
+	$effect(() => {
+		filterSignature;
+		visibleCount = Math.min(QUOTES_PER_BATCH, filteredQuotes.length || QUOTES_PER_BATCH);
+	});
+
+	// Loads the next batch (three rows) when the sentinel intersects the end of the scroll area.
+	function registerInfiniteScrollObserver() {
+		const sentinel = loadMoreSentinel;
+		const root = scrollViewport;
+
+		if (!sentinel || !root) {
+			return;
+		}
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const isVisible = entries.some((entry) => entry.isIntersecting);
+				if (isVisible && visibleCount < filteredQuotes.length) {
+					console.log("Loading more quotes rows...");
+					visibleCount = Math.min(visibleCount + QUOTES_PER_BATCH, filteredQuotes.length);
+				}
+			},
+			{
+				root,
+				rootMargin: "0px 0px 200px 0px",
+				threshold: 0.25,
+			},
+		);
+
+		observer.observe(sentinel);
+
+		return () => observer.disconnect();
+	}
+
+	$effect(() => registerInfiniteScrollObserver());
 
 	// Copies the supplied quote to the clipboard and surfaces toast feedback.
 	async function copyQuote(quote: Quote) {
@@ -100,6 +172,8 @@ import Users from "@lucide/svelte/icons/users";
 	function openQuoteDialog(quote: Quote | undefined) {
 		if (!quote) return;
 		focusedQuote = quote;
+		editableQuote = quote.quote;
+		editableCharacter = quote.character;
 		dialogOpen = true;
 	}
 
@@ -119,6 +193,35 @@ import Users from "@lucide/svelte/icons/users";
 		if (!focusedQuote) return;
 		await copyQuote(focusedQuote);
 	}
+
+	// Handles the outcome of the updateQuote action.
+const handleQuoteSubmit: SubmitFunction = () => {
+	return async ({ result, update }) => {
+		if (result.type === "failure") {
+			toast.error("Unable to save quote", {
+				description:
+					"Please check the fields and try again. If the issue persists, reload the page.",
+			});
+			return;
+		}
+
+		await update({ reset: false });
+
+		if (result.type === "success" && result.data?.updatedQuote) {
+			const updatedQuote = result.data.updatedQuote as Quote;
+			dataset = dataset.map((quote) =>
+				quote.id === updatedQuote.id ? updatedQuote : quote,
+			);
+			focusedQuote = updatedQuote;
+			editableQuote = updatedQuote.quote;
+			editableCharacter = updatedQuote.character;
+			toast.success("Quote updated", {
+				description: `${updatedQuote.character}'s quote was saved to the dataset.`,
+			});
+			dialogOpen = false;
+		}
+	};
+};
 </script>
 
 <section class="space-y-8">
@@ -127,11 +230,11 @@ import Users from "@lucide/svelte/icons/users";
 			<div class="flex flex-wrap items-center gap-2">
 				<Badge class="gap-2 bg-primary/15 text-primary shadow-sm shadow-primary/20" variant="outline">
 					<Sparkles class="size-4" />
-					Live dataset
+					Local dataset
 				</Badge>
 				<Badge variant="outline" class="gap-2">
 					<BadgeCheck class="size-3.5 text-emerald-500" />
-					API status: healthy
+					{dataset.length} total quotes
 				</Badge>
 				{#if filtersActive}
 					<Badge variant="secondary" class="gap-2 text-xs uppercase tracking-wide">
@@ -146,18 +249,18 @@ import Users from "@lucide/svelte/icons/users";
 					South Park Quote Intelligence
 				</h1>
 				<p class="max-w-2xl text-sm text-muted-foreground sm:text-base">
-					Dive into a curated snapshot of 500 public South Park quotes. Refine the list by character, dig
-					into memorable one-liners, and surface inspiration for your next meme drop.
+					Browse and curate 500 locally cached South Park quotes. Begin with three rows, scroll to
+					stream more, and edit memorable lines directly inside this dashboard.
 				</p>
 			</div>
 		</div>
 
 		<div class="flex flex-wrap items-center gap-3">
-		<Button variant="ghost" size="sm" onclick={resetFilters}>
+			<Button variant="ghost" size="sm" onclick={resetFilters}>
 				<RefreshCw class="size-4" />
 				Reset filters
 			</Button>
-		<Button variant="default" size="sm" onclick={() => openQuoteDialog(quotes[0])}>
+			<Button variant="default" size="sm" onclick={() => openQuoteDialog(dataset[0])}>
 				<Info class="size-4" />
 				Dataset primer
 			</Button>
@@ -171,9 +274,9 @@ import Users from "@lucide/svelte/icons/users";
 				<MessageCircle class="size-4 text-primary/80" />
 			</CardHeader>
 			<CardContent>
-				<p class="text-3xl font-bold text-foreground">{quotes.length}</p>
+				<p class="text-3xl font-bold text-foreground">{dataset.length}</p>
 				<p class="mt-2 text-xs text-muted-foreground">
-					Powered by southparkquotes.onrender.com
+					Persisted in data/quotes.json
 				</p>
 			</CardContent>
 		</Card>
@@ -207,8 +310,8 @@ import Users from "@lucide/svelte/icons/users";
 					<span class="font-semibold text-foreground">Character:</span> {selectedCharacter}
 				</p>
 				<p>
-					<span class="font-semibold text-foreground">Results:</span> {filteredQuotes.length} matches
-					active
+					<span class="font-semibold text-foreground">Visible:</span> {visibleQuotes.length} showing
+					/ {filteredQuotes.length} filtered
 				</p>
 			</CardContent>
 		</Card>
@@ -256,15 +359,15 @@ import Users from "@lucide/svelte/icons/users";
 			<div class="flex items-center gap-2 text-xs text-muted-foreground">
 				<Filter class="size-3.5" />
 				<span>
-					Showing {filteredQuotes.length} of {quotes.length} quotes
+					Showing {visibleQuotes.length} of {filteredQuotes.length} filtered quotes
 					{#if filtersActive}
 						matching your filters.
 					{:else}
-						from the live dataset.
+						from the cached dataset.
 					{/if}
 				</span>
 			</div>
-		<Button size="sm" variant="outline" onclick={resetFilters}>
+			<Button size="sm" variant="outline" onclick={resetFilters}>
 				Clear filters
 			</Button>
 		</CardFooter>
@@ -275,11 +378,11 @@ import Users from "@lucide/svelte/icons/users";
 			<div>
 				<CardTitle class="text-lg font-semibold">Quote stream</CardTitle>
 				<CardDescription class="text-sm text-muted-foreground">
-					Scroll through the curated grid and open details for any quote.
+					Start with three rows; scroll to reveal more quotes in batches of three rows at a time.
 				</CardDescription>
 			</div>
 			<Badge variant="outline" class="text-xs uppercase tracking-wide">
-				{filteredQuotes.length} active
+				{filteredQuotes.length} filtered
 			</Badge>
 		</CardHeader>
 		<Separator class="mx-6" />
@@ -292,9 +395,9 @@ import Users from "@lucide/svelte/icons/users";
 					</p>
 				</div>
 			{:else}
-				<ScrollArea class="max-h-[640px] pr-3">
+				<ScrollArea class="max-h-[640px] pr-3" bind:viewportRef={scrollViewport}>
 					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each filteredQuotes as quote (quote.id)}
+						{#each visibleQuotes as quote (quote.id)}
 							<QuoteCard
 								{quote}
 								onCopy={copyQuote}
@@ -302,6 +405,14 @@ import Users from "@lucide/svelte/icons/users";
 							/>
 						{/each}
 					</div>
+					{#if hasMoreQuotes}
+						<div
+							bind:this={loadMoreSentinel}
+							class="flex w-full items-center justify-center py-6 text-xs uppercase tracking-wide text-muted-foreground"
+						>
+							Loading more quotes…
+						</div>
+					{/if}
 				</ScrollArea>
 			{/if}
 		</CardContent>
@@ -311,36 +422,66 @@ import Users from "@lucide/svelte/icons/users";
 <Dialog bind:open={dialogOpen}>
 	{#if focusedQuote}
 		<DialogContent class="max-w-lg border-border/60 bg-card/80">
-			<DialogHeader class="space-y-3">
-				<Badge variant="secondary" class="w-fit gap-2 uppercase tracking-wide">
-					<MessageCircle class="size-3" />
-					{focusedQuote.character}
-				</Badge>
-				<DialogTitle class="text-xl font-semibold leading-tight">
-					{focusedQuote.quote}
-				</DialogTitle>
-				<DialogDescription class="text-sm text-muted-foreground">
-					This quote surfaced from the South Park quotes API. Use it for inspiration, presentation
-					copy, or to settle a meme debate.
-				</DialogDescription>
-			</DialogHeader>
+			<form method="POST" action="?/updateQuote" use:enhance={handleQuoteSubmit} class="space-y-6">
+				<input type="hidden" name="id" value={focusedQuote.id} />
 
-			<div class="rounded-lg border border-dashed border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
-				<p>
-					<span class="font-semibold text-foreground">Quote ID:</span> {focusedQuote.id}
-				</p>
-				<p>
-					<span class="font-semibold text-foreground">Speaker:</span> {focusedQuote.character}
-				</p>
-			</div>
+				<DialogHeader class="space-y-3">
+					<Badge variant="secondary" class="w-fit gap-2 uppercase tracking-wide">
+						<MessageCircle class="size-3" />
+						{focusedQuote.character}
+					</Badge>
+					<DialogTitle class="text-xl font-semibold leading-tight">
+						Edit quote details
+					</DialogTitle>
+					<DialogDescription class="text-sm text-muted-foreground">
+						Update the quote text or character attribution. Saving will persist the change to
+						<code class="rounded bg-muted px-1.5 py-0.5 text-xs">data/quotes.json</code>.
+					</DialogDescription>
+				</DialogHeader>
 
-			<DialogFooter class="mt-6 flex justify-end gap-3">
-		<Button variant="ghost" size="sm" onclick={closeQuoteDialog}>Dismiss</Button>
-		<Button size="sm" onclick={copyFocusedQuote}>
-					<Copy class="size-3.5" />
-					Copy quote
-				</Button>
-			</DialogFooter>
+				<div class="space-y-4">
+					<div class="space-y-2">
+						<Label class="text-xs uppercase tracking-wide text-muted-foreground/70" for="character">
+							Character
+						</Label>
+						<Input
+							id="character"
+							name="character"
+							bind:value={editableCharacter}
+							placeholder="Enter character name"
+							required
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<Label class="text-xs uppercase tracking-wide text-muted-foreground/70" for="quote">
+							Quote
+						</Label>
+					<textarea
+						id="quote"
+						name="quote"
+						bind:value={editableQuote}
+						required
+						rows="4"
+						class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40"
+						placeholder="Edit the quote text..."
+					></textarea>
+					</div>
+				</div>
+
+				<DialogFooter class="flex justify-end gap-3 pt-2">
+					<Button variant="ghost" size="sm" type="button" onclick={closeQuoteDialog}>
+						Dismiss
+					</Button>
+					<Button type="button" size="sm" variant="outline" onclick={copyFocusedQuote}>
+						<Copy class="size-3.5" />
+						Copy quote
+					</Button>
+					<Button type="submit" size="sm">
+						Save changes
+					</Button>
+				</DialogFooter>
+			</form>
 		</DialogContent>
 	{/if}
 </Dialog>
