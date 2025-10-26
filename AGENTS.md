@@ -66,6 +66,7 @@ IF THE BELOW IS NOT FOLLOWED IN EXISTING CODE - SUGGEST FIX IT!!
 ### process
 
 - make components (with data and logic) before creating ui components. your ui components seems to be specialiced to the logic of the component where the perfect ui component focuses on smaller ui only tasks
+- if a component have sublayouts or is more than around 150 lines of code you **must** create subcomponents
 - create subcomponents in the same component folder
 - put the javascript logic in the component svelte file or javascript file in same folder.
 - maybe move some to $lib

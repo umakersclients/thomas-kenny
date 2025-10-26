@@ -231,7 +231,7 @@ const handleQuoteSubmit: SubmitFunction = () => {
 		</Card>
 	</div>
 
-	<Card class="border-border/60 bg-card/70 backdrop-blur">
+	<Card id="filters" class="border-border/60 bg-card/70 backdrop-blur">
 		<CardHeader class="space-y-1">
 			<CardTitle class="text-lg font-semibold">Filter quotes</CardTitle>
 			<CardDescription class="text-sm text-muted-foreground">
@@ -280,7 +280,7 @@ const handleQuoteSubmit: SubmitFunction = () => {
 	</CardFooter>
 	</Card>
 
-	<Card class="border-border/60 bg-card/60">
+	<Card id="quotes" class="border-border/60 bg-card/60">
 	<CardHeader class="flex flex-row items-center justify-between">
 		<div>
 			<CardTitle class="text-lg font-semibold">Quote stream</CardTitle>

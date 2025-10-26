@@ -39,9 +39,7 @@
 			variant?: ButtonVariant;
 			size?: ButtonSize;
 		};
-
 </script>
-
 
 <script lang="ts">
 	type $$Events = {
