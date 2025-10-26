@@ -1,0 +1,17 @@
+[
+	{
+		"username": "quotes",
+		"password": "quotes",
+		"roles": ["quotes"]
+	},
+	{
+		"username": "filter",
+		"password": "filter",
+		"roles": ["filter"]
+	},
+	{
+		"username": "admin",
+		"password": "admin",
+		"roles": ["quotes", "filter"]
+	}
+]

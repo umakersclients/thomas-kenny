@@ -6,6 +6,7 @@
 
 - Use **kebab-case** for all filenames and folder names.  
 - Files with special names (e.g. `README.md`, `.env`, etc.) are **exceptions** to the kebab-case rule.
+- Avoid relative import paths that climb upwards (../); instead prefer $lib or absolute paths, or keep to same/sub-directory relatives.
 
 ---
 
